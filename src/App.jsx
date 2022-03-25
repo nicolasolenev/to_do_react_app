@@ -1,16 +1,11 @@
 import { useState, useEffect } from "react";
 import logo from "./logo.svg";
 import "./App.css";
+import "./main.css";
+import storage from "./storage.js";
 
-const tasks = localStorage.getItem("tasks")
-  ? JSON.parse(localStorage.getItem("tasks"))
-  : [];
-
-let ID = !tasks.length
-  ? 0
-  : localStorage.getItem("id")
-  ? JSON.parse(localStorage.getItem("id"))
-  : 0;
+const tasks = storage.getTasks();
+let ID = storage.getLastID(tasks);
 
 function InputField(props) {
   return (
@@ -23,13 +18,13 @@ function InputField(props) {
   );
 }
 
-function AddTaskButton(props) {
+function AddTaskButton() {
   return (
-    <button className={props.className}>
+    <button className="todo_list__add_button">
       <img
-        className={props.img.className}
-        src={props.img.src}
-        alt={props.img.alt}
+        className="todo_list__add_button_icon"
+        src="./src/img/add-icon.svg"
+        alt="Добавить"
       />
     </button>
   );
@@ -40,14 +35,14 @@ function TaskCreateForm(props) {
 
   function handleSubmit(event) {
     event.preventDefault();
-    props.saveTask(
-      [].concat(props.tasks, {
-        id: ID++,
-        check: false,
-        priority: props.priority,
-        text: value
-      })
-    );
+    const task = {
+      id: ++ID,
+      check: false,
+      priority: props.priority,
+      text: value
+    };
+
+    props.saveTask([...props.tasks, task]);
     event.target.reset();
     setValue("");
   }
@@ -58,25 +53,24 @@ function TaskCreateForm(props) {
 
   return (
     <form className="todo_list__add_task" onSubmit={handleSubmit}>
-      <InputField placeholder="Добавить важных дел" onChange={handleChange} />
-      <AddTaskButton
-        className="todo_list__add_button"
-        img={{
-          className: "todo_list__add_button_icon",
-          src: "./src/img/add-icon.svg",
-          alt: "Добавить"
-        }}
+      <InputField
+        placeholder={
+          props.priority === "high" ? "Добавить важных дел" : "Добавить"
+        }
+        onChange={handleChange}
       />
+      <AddTaskButton />
     </form>
   );
 }
 
 function Task(props) {
   const taskIndex = props.tasks.map(task => task.id).indexOf(props.task.id);
-  const tasks = [].concat(props.tasks);
+  const tasks = [...props.tasks];
+  const check = props.task.check;
 
   function checkboxHandler(event) {
-    tasks[taskIndex].check = !props.task.check;
+    tasks[taskIndex].check = !check;
     props.setTasks(tasks);
   }
 
@@ -86,12 +80,8 @@ function Task(props) {
   }
 
   return (
-    <div
-      className={props.task.check ? "todo_list__task Done" : "todo_list__task"}
-    >
-      <span
-        className={props.task.check ? "circle" : "circle display_none"}
-      ></span>
+    <div className={check ? "todo_list__task Done" : "todo_list__task"}>
+      <span className={check ? "circle" : "circle display_none"}></span>
       <input
         type="checkbox"
         className="todo_list__checkbox"
@@ -112,6 +102,10 @@ function Task(props) {
 }
 
 function PrioritySection(props) {
+  const filteredTasksByPriority = props.tasks.filter(
+    task => task.priority === props.name
+  );
+
   return (
     <section id={props.name} className="todo_list__section">
       <h2 className="todo_list__title">{props.name}</h2>
@@ -120,28 +114,21 @@ function PrioritySection(props) {
         priority={props.name}
         tasks={props.tasks}
       />
-      {props.tasks
-        .filter(task => task.priority === props.name)
-        .map(task => (
-          <Task
-            key={task.id}
-            task={task}
-            tasks={props.tasks}
-            setTasks={props.setTasks}
-          />
-        ))}
+      {filteredTasksByPriority.map(task => (
+        <Task
+          key={task.id}
+          task={task}
+          tasks={props.tasks}
+          setTasks={props.setTasks}
+        />
+      ))}
     </section>
   );
 }
 
 function ToDoList(props) {
   const [tasks, setTasks] = useState(props.tasks);
-
-  window.onunload = function() {
-    localStorage.setItem("tasks", JSON.stringify(tasks));
-    localStorage.setItem("id", ID);
-  };
-
+  window.onunload = storage.saveTasks(tasks);
   return (
     <div className="todo_list">
       <PrioritySection name="high" tasks={tasks} setTasks={setTasks} />
